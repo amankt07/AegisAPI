@@ -54,7 +54,11 @@ def init_db(custom_engine=None):
     db = target_session_factory()
     try:
         # Load model_metadata.json from models directory
-        models_dir = os.path.abspath(os.path.join(BACKEND_DIR, "..", "models"))
+        env_models_dir = os.getenv("MODELS_DIR")
+        if env_models_dir and os.path.exists(env_models_dir):
+            models_dir = os.path.abspath(env_models_dir)
+        else:
+            models_dir = os.path.abspath(os.path.join(BACKEND_DIR, "..", "models"))
         meta_path = os.path.join(models_dir, "model_metadata.json")
 
         if os.path.exists(meta_path):

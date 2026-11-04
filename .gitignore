@@ -43,10 +43,11 @@ venv.bak/
 backend/*.db
 backend/*.sqlite3
 
-# ML Models & Checkpoints (Keep directory via .gitkeep)
+# ML Models & Checkpoints (Keep directory via .gitkeep, metadata JSON and trained PKL artifacts < 1MB)
 models/*
 !models/.gitkeep
 !models/*.json
+!models/*.pkl
 
 # Datasets (Keep directory via .gitkeep)
 data/raw/*

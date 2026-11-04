@@ -22,9 +22,13 @@ class ModelService:
 
     def __init__(self, models_dir: Optional[str] = None):
         if models_dir is None:
-            # Resolve models/ relative to backend/app/services/
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            self.models_dir = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "models"))
+            # Check environment variable first, otherwise resolve models/ relative to backend/app/services/
+            env_models_dir = os.getenv("MODELS_DIR")
+            if env_models_dir and os.path.exists(env_models_dir):
+                self.models_dir = os.path.abspath(env_models_dir)
+            else:
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                self.models_dir = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "models"))
         else:
             self.models_dir = models_dir
 

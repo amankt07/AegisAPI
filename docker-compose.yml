@@ -7,28 +7,35 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
-      - ./models:/models
-      - ./data:/data
+      - ./models:/app/models:ro
+      - aegis_db_data:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=sqlite:///./aegis_api.db
-      - ENVIRONMENT=development
+      - DATABASE_URL=sqlite:////app/aegisapi.db
+      - MODELS_DIR=/app/models
+      - ENVIRONMENT=production
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost:8000
     container_name: aegis_frontend
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8000
+      - "5173:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
+volumes:
+  aegis_db_data:
+    driver: local
