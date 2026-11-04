@@ -3,11 +3,13 @@ AegisAPI - Intelligent API Traffic Anomaly Detection & Threat Monitoring Platfor
 FastAPI Application Entrypoint
 Integrates ML inference, traffic event store, health monitoring, and analytics.
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.database import init_db
 from app.routes import (
     health_router,
     model_info_router,
@@ -16,6 +18,21 @@ from app.routes import (
     traffic_router,
 )
 from app.services.model_service import model_service
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager.
+    Initializes database tables, creates sqlite file if missing,
+    and synchronizes active machine learning model metadata on startup.
+    """
+    init_db()
+    yield
+
+
+# Ensure tables and metadata are initialized upon module load
+init_db()
 
 app = FastAPI(
     title="AegisAPI",
@@ -29,6 +46,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------

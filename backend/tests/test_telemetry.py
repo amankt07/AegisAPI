@@ -4,17 +4,31 @@ AegisAPI Backend Tests - Telemetry & Statistics Endpoints
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
+from app.database import SessionLocal
+from app.models import TrafficEvent, AnomalyPrediction
 from app.services.traffic_service import traffic_service
 
 client = TestClient(app)
 
 
+def _clean_db():
+    db = SessionLocal()
+    try:
+        db.query(AnomalyPrediction).delete()
+        db.query(TrafficEvent).delete()
+        db.commit()
+    finally:
+        db.close()
+
+
 @pytest.fixture(autouse=True)
 def reset_telemetry():
-    """Clear traffic service before and after tests for isolated assertions."""
+    """Clear traffic service and database tables before and after tests for isolated assertions."""
     traffic_service.clear()
+    _clean_db()
     yield
     traffic_service.clear()
+    _clean_db()
 
 
 def test_traffic_and_statistics_flow():

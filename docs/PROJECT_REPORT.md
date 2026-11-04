@@ -6,7 +6,7 @@
 **Project Title:** AegisAPI – Intelligent API Traffic Anomaly Detection & Threat Monitoring Platform  
 **System Classification:** Full-Stack Machine Learning Security & Observability System  
 **Lead Engineering Roles:** Senior Software Architect & Full-Stack ML Engineer  
-**Status:** In Progress (Phases 0, 1, 2, 3, and 4 Complete)  
+**Status:** In Progress (Phases 0, 1, 2, 3, 4, and 5 Complete)  
 **Last Updated:** November 2026  
 
 ---
@@ -22,6 +22,7 @@
    - [Phase 2: Data Preprocessing & Exploratory Data Analysis (EDA)](#phase-2-data-preprocessing--exploratory-data-analysis-eda)
    - [Phase 3: Machine Learning Model Development & Evaluation](#phase-3-machine-learning-model-development--evaluation)
    - [Phase 4: High-Performance FastAPI Backend Development](#phase-4-high-performance-fastapi-backend-development)
+   - [Phase 5: SQLite Database & ORM Persistence Integration](#phase-5-sqlite-database--orm-persistence-integration)
 6. [Phase Milestone Tracker & Roadmap](#6-phase-milestone-tracker--roadmap)
 7. [Repository File Inventory & Artifact Catalog](#7-repository-file-inventory--artifact-catalog)
 
@@ -263,6 +264,27 @@ AegisAPI addresses this vulnerability by deploying an **unsupervised machine lea
 
 ---
 
+### Phase 5: SQLite Database & ORM Persistence Integration
+- **Objective:** Establish production-grade transactional persistence for incoming telemetry, model predictions, and model governance using SQLite and SQLAlchemy ORM, without replacing or retraining the machine learning model.
+- **Key Modules Developed:**
+  - [`backend/app/database.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/database.py): Engine creation (`sqlite:///backend/aegisapi.db`), scoped session dependency (`get_db`), and automated idempotent table & model metadata initialization (`init_db`).
+  - [`backend/app/models.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/models.py): SQLAlchemy declarative models:
+    - `TrafficEvent`: Stores inbound request telemetry (IP, endpoint, method, status code, latency, payload sizes, rate, failed requests, user agent).
+    - `AnomalyPrediction`: Stores ML inference outputs (anomaly flag, prediction label, continuous anomaly score, model name) linked via 1-to-1 foreign key with cascading delete.
+    - `ModelInformation`: Stores immutable model audit ledger (name, algorithm, training date, records, features, validation metrics, active champion flag).
+  - [`backend/app/services/database_service.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/services/database_service.py): Business layer for atomic transaction persistence, batch inserts with savepoint isolation (`begin_nested`), paginated chronological queries, real-time SQL KPI aggregations, and model information synchronization.
+  - [`backend/app/main.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/main.py): Lifespan context manager invoking `init_db()` on boot to ensure database tables and metadata exist prior to traffic serving.
+  - Route Integration: Updated [`prediction.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/routes/prediction.py), [`traffic.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/routes/traffic.py), [`statistics.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/routes/statistics.py), and [`model_info.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/routes/model_info.py) with `Depends(get_db)`.
+- **Primary Artifacts Created:**
+  - [`docs/database_documentation.md`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/docs/database_documentation.md): Comprehensive schema specification, ER diagram, table constraints, relationship mappings, indexing strategy, and maintenance guides.
+  - [`backend/tests/test_database.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/tests/test_database.py): 10 dedicated test cases verifying connection, tables, insert operations, foreign key cascades, pagination, aggregations, transaction rollback, and cross-session persistence.
+  - [`scripts/verify_phase5_database.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/scripts/verify_phase5_database.py): End-to-end verification script testing live database creation, ingestion, direct sqlite3 inspection, API retrieval, and server restart simulation.
+- **Verification & Test Outcomes:**
+  - **Full Backend Pytest Suite:** **`28 passed`** (10 database tests + 18 API/model tests).
+  - **Data Persistence Verification:** Live traffic events and predictions validated in `backend/aegisapi.db` surviving process teardown and restarts.
+
+---
+
 ## 6. Phase Milestone Tracker & Roadmap
 
 ```
@@ -273,9 +295,10 @@ AegisAPI addresses this vulnerability by deploying an **unsupervised machine lea
 | [X] Phase 1: Synthetic Dataset Generation (30,000 records)             |
 | [X] Phase 2: Data Preprocessing & Exploratory Data Analysis (EDA)      |
 | [X] Phase 3: Machine Learning Model Development & Tuning (Isolation Forest)
-| [X] Phase 4: High-Performance FastAPI Backend & Database Integration   |
-| [ ] Phase 5: Interactive Security Dashboard (React + Vite + Recharts)  |
-| [ ] Phase 6: End-to-End Integration, Dockerization & Production Testing|
+| [X] Phase 4: High-Performance FastAPI Backend Development              |
+| [X] Phase 5: SQLite Database & ORM Persistence Integration             |
+| [ ] Phase 6: Interactive Security Dashboard (React + Vite + Tailwind)  |
+| [ ] Phase 7: End-to-End Integration, Dockerization & Production Testing|
 +------------------------------------------------------------------------+
 ```
 
@@ -319,15 +342,24 @@ AegisAPI addresses this vulnerability by deploying an **unsupervised machine lea
   - [x] TrafficService in-memory telemetry buffer and rolling KPI aggregations
   - [x] Pydantic v2 validation contracts (`TrafficRecordInput`, `PredictionResponse`, `DashboardStatistics`)
   - [x] CORS middleware and clean error responses
-  - [x] 18 automated unit and integration tests in `backend/tests/` (100% pass rate)
+  - [x] Automated unit and integration tests in `backend/tests/`
   - [x] Detailed API documentation guide (`docs/backend_api_documentation.md`)
-- [ ] **Phase 5: Frontend React Dashboard (NEXT UP)**
+- [x] **Phase 5: SQLite Database & ORM Integration**
+  - [x] SQLAlchemy engine, declarative Base, and scoped session dependency (`get_db`)
+  - [x] `TrafficEvent`, `AnomalyPrediction`, and `ModelInformation` database tables
+  - [x] Foreign key relationships with cascade delete
+  - [x] `DatabaseService` with atomic transactions, rollback protection, and savepoint-isolated batching
+  - [x] Database router integration (`/predict`, `/predict/batch`, `/traffic`, `/anomalies`, `/statistics`, `/model-info`)
+  - [x] Automatic database & metadata initialization on startup (`init_db`)
+  - [x] 10 isolated database test cases in `backend/tests/test_database.py` (28/28 total backend tests passing)
+  - [x] End-to-end verification script (`scripts/verify_phase5_database.py`) and documentation (`docs/database_documentation.md`)
+- [ ] **Phase 6: Frontend React Dashboard (NEXT UP)**
   - [ ] Vite + React project setup with Tailwind CSS
   - [ ] Real-time KPI summary widgets (Total Traffic, Anomaly Rate, Active Threats)
   - [ ] Dynamic Recharts charts (Traffic Velocity, Latency Spikes, Anomaly Trends)
   - [ ] Interactive threat incident alert feed with filtering
   - [ ] API service client connecting to FastAPI backend
-- [ ] **Phase 6: Integration & Deployment**
+- [ ] **Phase 7: Integration & Deployment**
   - [ ] Docker container build for backend and frontend
   - [ ] Docker Compose end-to-end verification
   - [ ] End-to-end integration tests
@@ -340,22 +372,24 @@ AegisAPI addresses this vulnerability by deploying an **unsupervised machine lea
 AegisAPI/
 │
 ├── backend/
+│   ├── aegisapi.db                     # SQLite persistence database (auto-initialized)
 │   ├── app/
 │   │   ├── __init__.py                 # Backend application package
-│   │   ├── main.py                     # FastAPI entrypoint, CORS, routers & exception handlers
-│   │   ├── database.py                 # SQLite database engine & session dependency
-│   │   ├── models.py                   # SQLAlchemy ORM schema (TrafficLog)
-│   │   ├── schemas.py                  # Pydantic validation schemas (Input, Output, Statistics)
+│   │   ├── main.py                     # FastAPI entrypoint, lifespan, CORS, routers & handlers
+│   │   ├── database.py                 # SQLite database engine, session local & init_db
+│   │   ├── models.py                   # SQLAlchemy ORM models (TrafficEvent, AnomalyPrediction, ModelInformation)
+│   │   ├── schemas.py                  # Pydantic validation schemas (Input, Output, Statistics, Events)
 │   │   ├── routes/                     # Modular API route packages
 │   │   │   ├── __init__.py             # Route aggregator
 │   │   │   ├── health.py               # GET /health service and model status
-│   │   │   ├── prediction.py           # POST /predict and POST /predict/batch
-│   │   │   ├── traffic.py              # GET /traffic and GET /anomalies telemetry
-│   │   │   ├── statistics.py           # GET /statistics KPI aggregations
-│   │   │   └── model_info.py           # GET /model-info audit metadata
+│   │   │   ├── prediction.py           # POST /predict and POST /predict/batch (DB persisted)
+│   │   │   ├── traffic.py              # GET /traffic and GET /anomalies telemetry (DB queried)
+│   │   │   ├── statistics.py           # GET /statistics SQL KPI aggregations
+│   │   │   └── model_info.py           # GET /model-info audit metadata from DB
 │   │   └── services/                   # Business logic and ML inference services
 │   │       ├── __init__.py
 │   │       ├── model_service.py        # ML loader, 42-feature preprocessor & inference
+│   │       ├── database_service.py     # Transactional persistence, savepoints & SQL queries
 │   │       └── traffic_service.py      # Telemetry store, rolling KPI buffer & aggregations
 │   ├── tests/
 │   │   ├── __init__.py
@@ -363,10 +397,11 @@ AegisAPI/
 │   │   ├── test_health.py              # Health check, discovery & model info tests
 │   │   ├── test_prediction.py          # Single & batch prediction, validation error tests
 │   │   ├── test_telemetry.py           # Traffic feed, anomalies feed & KPI statistics tests
-│   │   └── test_model_service.py       # Unit tests for transforms and error handling
+│   │   ├── test_model_service.py       # Unit tests for transforms and error handling
+│   │   └── test_database.py            # SQLite connection, cascades, rollbacks & persistence tests
 │   └── requirements.txt                # Python backend dependencies
 │
-├── frontend/                           # React.js + Vite dashboard (Ready for Phase 5)
+├── frontend/                           # React.js + Vite dashboard (Ready for Phase 6)
 │   └── .gitkeep
 │
 ├── data/
@@ -394,7 +429,8 @@ AegisAPI/
 │   ├── generate_dataset.py             # Phase 1 dataset generator script
 │   ├── preprocess_data.py              # Phase 2 cleaning, EDA & feature pipeline
 │   ├── train_model.py                  # Phase 3 model training & benchmarking script
-│   └── evaluate_model.py               # Phase 3 standalone model evaluator & tester
+│   ├── evaluate_model.py               # Phase 3 standalone model evaluator & tester
+│   └── verify_phase5_database.py       # Phase 5 SQLite persistence & API verification script
 │
 ├── docs/
 │   ├── .gitkeep
@@ -403,6 +439,7 @@ AegisAPI/
 │   ├── preprocessing_report.md         # Data preprocessing & feature report (Phase 2)
 │   ├── model_training_report.md        # Model training & benchmarking report (Phase 3)
 │   ├── backend_api_documentation.md    # FastAPI backend API specifications (Phase 4)
+│   ├── database_documentation.md       # SQLite schema, tables & queries documentation (Phase 5)
 │   ├── model_comparison.csv            # Empirical model evaluation metrics CSV table
 │   ├── eda/                            # 8 high-resolution analytical charts (Phase 2)
 │   │   ├── 01_normal_vs_anomalous_distribution.png

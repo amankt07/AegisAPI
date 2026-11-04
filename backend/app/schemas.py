@@ -118,6 +118,8 @@ class TrafficEvent(BaseModel):
     anomaly_score: float
     threat_level: str
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class AnomalyEvent(BaseModel):
     """Schema representing an incident-flagged anomalous event."""
@@ -135,6 +137,8 @@ class AnomalyEvent(BaseModel):
     anomaly_score: float
     threat_level: str
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class DashboardStatistics(BaseModel):
     """Real-time aggregated KPIs for dashboard telemetry."""
@@ -144,8 +148,11 @@ class DashboardStatistics(BaseModel):
     anomaly_percentage: float
     average_response_time_ms: float
     http_error_count: int
+    recent_traffic_volume: int = Field(default=0, description="Volume of requests in the recent window")
     threat_level_distribution: Dict[str, int]
     top_anomalous_endpoints: Dict[str, int]
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ModelInfoResponse(BaseModel):
@@ -160,6 +167,8 @@ class ModelInfoResponse(BaseModel):
     evaluation_metrics: Dict[str, Any]
     score_interpretation: str
     feature_names: List[str]
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class HealthResponse(BaseModel):

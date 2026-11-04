@@ -1,14 +1,19 @@
 """
 AegisAPI - Anomaly Detection Prediction Endpoints
-Provides real-time single-record and batch traffic anomaly classification.
+Provides real-time single-record and batch traffic anomaly classification
+with persistent SQLite database storage.
 """
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.database import get_db
 from app.schemas import (
     BatchPredictionResponse,
     BatchTrafficInput,
     PredictionResponse,
     TrafficRecordInput,
 )
+from app.services.database_service import database_service
 from app.services.model_service import model_service
 from app.services.traffic_service import traffic_service
 
@@ -20,13 +25,13 @@ router = APIRouter(tags=["Prediction & Anomaly Detection"])
     response_model=PredictionResponse,
     status_code=status.HTTP_200_OK,
     summary="Inspect Single Traffic Record",
-    description="Validates incoming API telemetry, executes the Isolation Forest model, and returns anomaly classification.",
+    description="Validates incoming API telemetry, executes the Isolation Forest model, and persists record and prediction in SQLite.",
 )
-async def predict_single(record: TrafficRecordInput):
+def predict_single(record: TrafficRecordInput, db: Session = Depends(get_db)):
     """
     Ingests and analyzes a single API traffic record in real time.
-    Flags volumetric bursts, brute-force patterns, 5xx server failures,
-    abnormal latencies, or suspicious payload transfers.
+    Executes ML inference, stores the traffic event and its anomaly prediction
+    atomically in SQLite, and returns classification diagnostics.
     """
     if not model_service.is_loaded:
         raise HTTPException(
@@ -35,14 +40,22 @@ async def predict_single(record: TrafficRecordInput):
         )
 
     try:
+        # Run ML inference
         prediction = model_service.predict_single(record)
-        # Record into memory telemetry buffer
+
+        # Transactional SQLite persistence
+        database_service.save_traffic_and_prediction(db, record, prediction)
+
+        # Synchronize in-memory telemetry buffer
         traffic_service.record_event(record, prediction)
+
         return prediction
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Inference error during feature processing: {str(e)}",
+            detail=f"Inference or persistence error: {str(e)}",
         )
 
 
@@ -51,12 +64,12 @@ async def predict_single(record: TrafficRecordInput):
     response_model=BatchPredictionResponse,
     status_code=status.HTTP_200_OK,
     summary="Inspect Batch Traffic Records",
-    description="Evaluates up to 500 API traffic logs in a vectorized high-throughput inference call.",
+    description="Evaluates up to 500 API traffic logs in a vectorized call and transactionally saves records into SQLite.",
 )
-async def predict_batch(payload: BatchTrafficInput):
+def predict_batch(payload: BatchTrafficInput, db: Session = Depends(get_db)):
     """
     Performs vectorized anomaly detection across multiple traffic records.
-    Returns per-record anomaly classifications and aggregated threat counts.
+    Persists all records and predictions into SQLite using per-record savepoints.
     """
     if not model_service.is_loaded:
         raise HTTPException(
@@ -73,6 +86,12 @@ async def predict_batch(payload: BatchTrafficInput):
 
     try:
         predictions, anomaly_count = model_service.predict_batch(records)
+
+        # Transactional SQLite batch persistence
+        paired = list(zip(records, predictions))
+        success_count, fail_count = database_service.save_batch_traffic_and_predictions(db, paired)
+
+        # Synchronize in-memory buffer
         traffic_service.record_batch(records, predictions)
 
         total = len(records)
@@ -90,9 +109,10 @@ async def predict_batch(payload: BatchTrafficInput):
             model_name=model_name,
             predictions=predictions,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Batch inference failed: {str(e)}",
+            detail=f"Batch inference or persistence failed: {str(e)}",
         )
-
