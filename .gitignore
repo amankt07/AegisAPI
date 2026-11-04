@@ -46,6 +46,7 @@ backend/*.sqlite3
 # ML Models & Checkpoints (Keep directory via .gitkeep)
 models/*
 !models/.gitkeep
+!models/*.json
 
 # Datasets (Keep directory via .gitkeep)
 data/raw/*

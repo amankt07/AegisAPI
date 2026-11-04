@@ -1,0 +1,42 @@
+{
+  "model_name": "Isolation Forest",
+  "algorithm": "sklearn.ensemble._iforest.IsolationForest",
+  "training_date": "2026-11-04T09:35:36.438548",
+  "random_seed": 42,
+  "hyperparameters": {
+    "n_estimators": 100,
+    "contamination": 0.15,
+    "max_samples": "auto",
+    "random_state": 42,
+    "n_jobs": -1
+  },
+  "dataset": {
+    "total_records": 30000,
+    "train_records": 24000,
+    "test_records": 6000,
+    "feature_count": 42,
+    "train_test_split_ratio": "80/20",
+    "stratified": true
+  },
+  "evaluation_metrics": {
+    "Accuracy": 0.961,
+    "Precision": 0.8588362068965517,
+    "Recall": 0.8855555555555555,
+    "F1-Score": 0.8719912472647703,
+    "ROC-AUC": 0.9904145969498911,
+    "PR-AUC": 0.956730273282649,
+    "False Positive Rate": 0.025686274509803923,
+    "False Negative Rate": 0.11444444444444445,
+    "True Negatives": 4969,
+    "False Positives": 131,
+    "False Negatives": 103,
+    "True Positives": 797,
+    "Training Time (s)": 0.309,
+    "Inference Latency (ms/sample)": 0.0048
+  },
+  "decision_threshold": {
+    "offset_": -0.4575732850062838,
+    "interpretation": "Scores > 0 or raw decision_function < 0 classify as anomaly"
+  },
+  "status": "production_champion"
+}
