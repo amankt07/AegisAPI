@@ -6,7 +6,7 @@
 **Project Title:** AegisAPI – Intelligent API Traffic Anomaly Detection & Threat Monitoring Platform  
 **System Classification:** Full-Stack Machine Learning Security & Observability System  
 **Lead Engineering Roles:** Senior Software Architect & Full-Stack ML Engineer  
-**Status:** In Progress (Phases 0, 1, 2, and 3 Complete)  
+**Status:** In Progress (Phases 0, 1, 2, 3, and 4 Complete)  
 **Last Updated:** November 2026  
 
 ---
@@ -21,6 +21,7 @@
    - [Phase 1: Synthetic Dataset Generation](#phase-1-synthetic-dataset-generation)
    - [Phase 2: Data Preprocessing & Exploratory Data Analysis (EDA)](#phase-2-data-preprocessing--exploratory-data-analysis-eda)
    - [Phase 3: Machine Learning Model Development & Evaluation](#phase-3-machine-learning-model-development--evaluation)
+   - [Phase 4: High-Performance FastAPI Backend Development](#phase-4-high-performance-fastapi-backend-development)
 6. [Phase Milestone Tracker & Roadmap](#6-phase-milestone-tracker--roadmap)
 7. [Repository File Inventory & Artifact Catalog](#7-repository-file-inventory--artifact-catalog)
 
@@ -195,16 +196,70 @@ AegisAPI addresses this vulnerability by deploying an **unsupervised machine lea
   - [`docs/model_training_report.md`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/docs/model_training_report.md): Technical report
 - **Candidate Benchmark Results (Evaluated on 6,000 Unseen Test Samples):**
 
-| Algorithm | Accuracy | Precision | Recall | F1-Score | ROC-AUC | PR-AUC | False Positive Rate | Fit Time |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Isolation Forest (Champion)** | **96.10%** | **85.88%** | **88.56%** | **87.20%** | **0.9904** | **0.9567** | **2.57%** | **0.309 s** |
-| **Local Outlier Factor (LOF)** | 71.68% | 8.34% | 8.89% | 8.61% | 0.4165 | 0.1325 | 17.24% | 0.711 s |
-| **One-Class SVM (OC-SVM)** | 92.55% | 74.70% | 76.11% | 75.40% | 0.7706 | 0.7954 | 4.55% | 9.679 s |
+| Algorithm | Accuracy | Precision | Recall | F1-Score | ROC-AUC | PR-AUC | False Positive Rate | Fit Time | Inference Latency |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Isolation Forest (Champion)** | **96.10%** | **85.88%** | **88.56%** | **87.20%** | **0.9904** | **0.9567** | **2.57%** | **0.309 s** | **0.0048 ms** |
+| **Local Outlier Factor (LOF)** | 71.68% | 8.34% | 8.89% | 8.61% | 0.4165 | 0.1325 | 17.24% | 0.711 s | 0.0352 ms |
+| **One-Class SVM (OC-SVM)** | 92.55% | 74.70% | 76.11% | 75.40% | 0.7706 | 0.7954 | 4.55% | 9.679 s | 0.3280 ms |
 
+- **Confusion Matrices Breakdown (Test Set = 6,000):**
+  - **Isolation Forest:** `4,969 TN` (97.43%), `131 FP` (2.57%), `103 FN` (11.44%), `797 TP` (88.56%).
+  - **Local Outlier Factor:** `4,221 TN`, `879 FP`, `820 FN`, `80 TP`. (Severe failure due to curse of dimensionality in 42-D space).
+  - **One-Class SVM:** `4,868 TN`, `232 FP`, `215 FN`, `685 TP`.
+- **Model Evaluation Visualizations (in `docs/model_evaluation/`):**
+  - `01_confusion_matrices.png`: Side-by-side heatmaps illustrating TN, FP, FN, and TP distribution.
+  - `02_roc_curves.png`: Comparative ROC curves showing Isolation Forest's dominant `0.9904` AUC.
+  - `03_precision_recall_curves.png`: PR curves showcasing high precision retention across recall boundaries (`0.9567` PR-AUC).
+  - `04_model_metrics_comparison.png`: Grouped performance metric benchmark across all three algorithms.
+  - `05_isolation_forest_score_distribution.png`: Non-overlapping bimodal separation of anomaly scores.
 - **Champion Model Selection Justification:**
-  - **Isolation Forest** won decisively across every quantitative metric: highest F1-Score (`87.20%`), highest anomaly recall (`88.56%`), and near-perfect ROC-AUC (`0.9904`).
-  - Sub-microsecond inference latency (`< 0.005 ms / request`) satisfies production real-time API gateway inline requirements.
-- **Live Production Simulation Testing:** Tested loaded model artifacts against 6 production API traffic scenarios (Normal, Scraper Burst, Credential Stuffing, 500 Crash Loop, Slowloris Hang, and Exfiltration Dump), achieving **100% classification accuracy**.
+  - **Isolation Forest** won decisively across every quantitative metric: highest F1-Score (`87.20%`), highest anomaly recall (`88.56%`), lowest false alarm rate (`2.57%`), and near-perfect ROC-AUC (`0.9904`).
+  - Sub-microsecond inference latency (`< 0.005 ms / request`) satisfies production real-time API gateway inline requirements (> 200,000 requests/sec per core).
+- **Live Production Simulation Testing:** Tested loaded model artifacts against 6 production API traffic scenarios, achieving **100% classification accuracy**:
+
+| Scenario | Endpoint & Method | HTTP | Score | Decision | Threat Tier | Accuracy |
+|---|---|:---:|:---:|:---:|:---:|:---:|
+| 1. Product Browsing | `GET /api/v1/products` | 200 | `-0.1094` | Normal | **Normal (Safe)** | **MATCH** |
+| 2. Scraper Spike | `GET /api/v1/products` (1,250 RPM) | 429 | `+0.0843` | Anomaly | **Medium Threat** | **MATCH** |
+| 3. Brute Force | `POST /api/v1/auth/login` (85 failed) | 401 | `+0.0812` | Anomaly | **Medium Threat** | **MATCH** |
+| 4. Crash Loop | `POST /api/v1/checkout/process` | 500 | `+0.0669` | Anomaly | **Medium Threat** | **MATCH** |
+| 5. Slowloris Hang | `GET /api/v1/reports/export` (11.5s) | 504 | `+0.0957` | Anomaly | **Medium Threat** | **MATCH** |
+| 6. Exfiltration Dump | `GET /api/v1/users/export` (18.5 MB) | 200 | `+0.0865` | Anomaly | **Medium Threat** | **MATCH** |
+
+---
+
+### Phase 4: High-Performance FastAPI Backend Development
+- **Status:** **COMPLETED**
+- **Objectives:** Construct an enterprise-grade asynchronous REST API layer integrating the champion Isolation Forest model, implementing real-time single and batch telemetry scoring, in-memory event storage, dynamic KPI statistics, and comprehensive automated test suites.
+- **Implementations:**
+  - [`backend/app/main.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/main.py): Application entrypoint, CORS middleware, global exception handlers, OpenAPI metadata.
+  - [`backend/app/schemas.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/schemas.py): Strict Pydantic validation schemas for input traffic, predictions, events, and metrics.
+  - [`backend/app/services/model_service.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/services/model_service.py): Singleton model integration engine loading `isolation_forest.pkl`, `scaler.pkl`, and `feature_columns.json` to execute 42-feature transformations and scoring.
+  - [`backend/app/services/traffic_service.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/services/traffic_service.py): Thread-safe in-memory telemetry buffer maintaining recent traffic, flagged anomaly logs, running error counts, and KPI aggregations.
+  - [`backend/app/routes/`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/app/routes): Modular sub-routers for health, prediction, telemetry logs, statistics, and model audit metadata.
+- **Primary Artifacts Created:**
+  - [`docs/backend_api_documentation.md`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/docs/backend_api_documentation.md): Comprehensive API reference guide with curl/request/response examples.
+  - [`backend/tests/test_health.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/tests/test_health.py): Health check and discovery tests.
+  - [`backend/tests/test_prediction.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/tests/test_prediction.py): Single and batch prediction validation and edge-case testing.
+  - [`backend/tests/test_telemetry.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/tests/test_telemetry.py): Telemetry logging, pagination, and KPI aggregation verification.
+  - [`backend/tests/test_model_service.py`](file:///c:/Users/amank/OneDrive/Desktop/AegisAPI/backend/tests/test_model_service.py): Unit tests for feature transforms and failure handling.
+- **Production API Endpoints Summary:**
+
+| Method & Route | Sub-Router | Description & Payload |
+|---|---|---|
+| `GET /` | Root | Service discovery, online status, and Swagger documentation links. |
+| `GET /health` | Health | Health status, version, and model loading state confirmation. |
+| `POST /predict` | Prediction | Real-time single API traffic anomaly scoring and threat categorization. |
+| `POST /predict/batch` | Prediction | High-throughput vectorized batch inference (up to 500 records). |
+| `GET /traffic` | Traffic | Chronological recent traffic events with pagination (`limit`, `offset`). |
+| `GET /anomalies` | Traffic | Incident log feed of detected anomalies with pagination. |
+| `GET /statistics` | Statistics | Real-time KPI summary (Total requests, anomaly rate %, avg latency, HTTP errors, threat distribution). |
+| `GET /model-info` | Model Info | Active algorithm hyperparameters, 42-feature schema, evaluation benchmarks, and score direction. |
+
+- **Automated Pytest Suite Results:**
+  - **Total Tests:** **`18 passed`** across 5 test modules.
+  - **Execution Time:** **`3.90s`**.
+  - **Coverage:** Tested health, single prediction (normal and 3 attack types), input validation (negative latencies, invalid HTTP verbs, status code boundary violations, missing fields), batch inference, telemetry pagination, and model service fail-safes.
 
 ---
 
@@ -218,7 +273,7 @@ AegisAPI addresses this vulnerability by deploying an **unsupervised machine lea
 | [X] Phase 1: Synthetic Dataset Generation (30,000 records)             |
 | [X] Phase 2: Data Preprocessing & Exploratory Data Analysis (EDA)      |
 | [X] Phase 3: Machine Learning Model Development & Tuning (Isolation Forest)
-| [ ] Phase 4: High-Performance FastAPI Backend & Database Integration   |
+| [X] Phase 4: High-Performance FastAPI Backend & Database Integration   |
 | [ ] Phase 5: Interactive Security Dashboard (React + Vite + Recharts)  |
 | [ ] Phase 6: End-to-End Integration, Dockerization & Production Testing|
 +------------------------------------------------------------------------+
@@ -258,13 +313,15 @@ AegisAPI addresses this vulnerability by deploying an **unsupervised machine lea
   - [x] Schema & metadata persistence (`models/feature_columns.json`, `models/model_metadata.json`)
   - [x] Production inference verification script (`scripts/evaluate_model.py`)
   - [x] Comprehensive technical report (`docs/model_training_report.md`)
-- [ ] **Phase 4: Backend API & Service Development (NEXT UP)**
-  - [ ] Real-time ingestion endpoint (`POST /api/v1/traffic`)
-  - [ ] Batch inference and anomaly scoring pipeline
-  - [ ] Threat categorization service (`Low`, `Medium`, `High`, `Critical`)
-  - [ ] Historical telemetry and analytics query endpoints
-  - [ ] Automated database seeding with synthetic records
-- [ ] **Phase 5: Frontend React Dashboard**
+- [x] **Phase 4: Backend API & Service Development**
+  - [x] Modular FastAPI router organization (`routes/health.py`, `prediction.py`, `traffic.py`, `statistics.py`, `model_info.py`)
+  - [x] ModelService singleton applying exact 42-feature transformations and scoring
+  - [x] TrafficService in-memory telemetry buffer and rolling KPI aggregations
+  - [x] Pydantic v2 validation contracts (`TrafficRecordInput`, `PredictionResponse`, `DashboardStatistics`)
+  - [x] CORS middleware and clean error responses
+  - [x] 18 automated unit and integration tests in `backend/tests/` (100% pass rate)
+  - [x] Detailed API documentation guide (`docs/backend_api_documentation.md`)
+- [ ] **Phase 5: Frontend React Dashboard (NEXT UP)**
   - [ ] Vite + React project setup with Tailwind CSS
   - [ ] Real-time KPI summary widgets (Total Traffic, Anomaly Rate, Active Threats)
   - [ ] Dynamic Recharts charts (Traffic Velocity, Latency Spikes, Anomaly Trends)
@@ -285,19 +342,28 @@ AegisAPI/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py                 # Backend application package
-│   │   ├── main.py                     # FastAPI entrypoint, CORS & /health route
+│   │   ├── main.py                     # FastAPI entrypoint, CORS, routers & exception handlers
 │   │   ├── database.py                 # SQLite database engine & session dependency
 │   │   ├── models.py                   # SQLAlchemy ORM schema (TrafficLog)
-│   │   ├── schemas.py                  # Pydantic validation schemas
+│   │   ├── schemas.py                  # Pydantic validation schemas (Input, Output, Statistics)
 │   │   ├── routes/                     # Modular API route packages
-│   │   │   └── __init__.py
-│   │   ├── services/                   # Business logic and threat assessment
-│   │   │   └── __init__.py
-│   │   └── ml/                         # ML inference engine and model wrappers
-│   │       └── __init__.py
+│   │   │   ├── __init__.py             # Route aggregator
+│   │   │   ├── health.py               # GET /health service and model status
+│   │   │   ├── prediction.py           # POST /predict and POST /predict/batch
+│   │   │   ├── traffic.py              # GET /traffic and GET /anomalies telemetry
+│   │   │   ├── statistics.py           # GET /statistics KPI aggregations
+│   │   │   └── model_info.py           # GET /model-info audit metadata
+│   │   └── services/                   # Business logic and ML inference services
+│   │       ├── __init__.py
+│   │       ├── model_service.py        # ML loader, 42-feature preprocessor & inference
+│   │       └── traffic_service.py      # Telemetry store, rolling KPI buffer & aggregations
 │   ├── tests/
 │   │   ├── __init__.py
-│   │   └── test_main.py                # Pytest health check tests
+│   │   ├── test_main.py                # Main app startup and docs mounting test
+│   │   ├── test_health.py              # Health check, discovery & model info tests
+│   │   ├── test_prediction.py          # Single & batch prediction, validation error tests
+│   │   ├── test_telemetry.py           # Traffic feed, anomalies feed & KPI statistics tests
+│   │   └── test_model_service.py       # Unit tests for transforms and error handling
 │   └── requirements.txt                # Python backend dependencies
 │
 ├── frontend/                           # React.js + Vite dashboard (Ready for Phase 5)
@@ -336,6 +402,7 @@ AegisAPI/
 │   ├── dataset_documentation.md        # Technical dataset documentation (Phase 1)
 │   ├── preprocessing_report.md         # Data preprocessing & feature report (Phase 2)
 │   ├── model_training_report.md        # Model training & benchmarking report (Phase 3)
+│   ├── backend_api_documentation.md    # FastAPI backend API specifications (Phase 4)
 │   ├── model_comparison.csv            # Empirical model evaluation metrics CSV table
 │   ├── eda/                            # 8 high-resolution analytical charts (Phase 2)
 │   │   ├── 01_normal_vs_anomalous_distribution.png
